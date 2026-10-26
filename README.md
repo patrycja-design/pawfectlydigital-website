@@ -1,28 +1,30 @@
 # PawfectlyDigital website
 
-## Contact form → Supabase
+## Contact form → Supabase + email notification
 
-The contact form posts to `/api/contact`. The Vercel serverless function validates the fields and inserts each successful submission into the private Supabase table `public.contact_submissions`.
+The contact form posts to `/api/contact`. The Vercel serverless function validates the fields and inserts each successful submission into the private Supabase table `public.contact_submissions`. If Resend email settings are configured, it also sends a notification to `pawfectlydigital@gmail.com`.
 
-### One-time Supabase setup
+### Supabase setup
 
-1. Open the SQL Editor in the Supabase project you want to use.
-2. Run the SQL in [supabase/schema.sql](supabase/schema.sql).
-3. In the Supabase project settings, copy the project URL and the **service_role secret** (legacy key) or server-side secret key that is authorized to write to the Data API. Never put this key in frontend code or any `NEXT_PUBLIC_*` variable.
+The table schema is in [supabase/schema.sql](supabase/schema.sql). It has been applied to the connected Supabase project `pawfectlydigital-website`.
 
-### Vercel setup
+### Vercel environment variables
 
-In Vercel → Project → Settings → Environment Variables, add:
+In Vercel → Project → Settings → Environment Variables, add these variables for Production (and Preview/Development if needed):
 
-- `SUPABASE_URL` — your Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` — your Supabase server-side service-role/secret key
+- `SUPABASE_URL` — the Supabase project URL
+- `SUPABASE_SERVICE_ROLE_KEY` — the server-side service-role/secret key (never expose this in frontend code or a `NEXT_PUBLIC_*` variable)
+- `RESEND_API_KEY` — API key from Resend, to enable email notifications
+- `RESEND_FROM_EMAIL` — sender address on a domain verified in Resend, e.g. `PawfectlyDigital <forms@your-verified-domain.com>`
 
-Set them for Production (and Preview/Development if you want to test those environments), then redeploy.
+Email notifications go to `pawfectlydigital@gmail.com`; replies go to the email submitted by the customer. If email configuration is missing or the email provider fails, the contact is still stored in Supabase and the email failure is logged.
+
+After changing environment variables, redeploy the Vercel project.
 
 ### Verify
 
-Submit the contact form with a test entry and confirm a matching row appears in Supabase Table Editor → `public.contact_submissions`. The form only shows success after the insert succeeds.
+Submit a test contact form and confirm a row appears in Supabase Table Editor → `public.contact_submissions`. Once Resend is configured, also confirm the notification arrives in `pawfectlydigital@gmail.com`.
 
 ### Security notes
 
-The service-role key is used only by the server-side Vercel function. RLS is enabled and direct access by `anon` and `authenticated` is revoked. The endpoint includes basic method, payload, and field validation. Before promoting the form to a high-traffic public launch, add a managed rate limit and bot protection (for example, Turnstile) to reduce spam.
+The service-role key is used only by the server-side Vercel function. RLS is enabled and direct access by `anon` and `authenticated` is revoked. The endpoint includes basic method, payload, and field validation. Before a high-traffic public launch, add managed rate limiting and bot protection.
