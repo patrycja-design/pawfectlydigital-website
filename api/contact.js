@@ -76,6 +76,51 @@ export default async function handler(req, res) {
       return json(res, 502, { error: 'We could not save your message right now. Please try again later.' });
     }
 
+    // Email notifications are optional until the Resend API key and a verified sender are configured.
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const fromEmail = process.env.RESEND_FROM_EMAIL;
+    if (resendApiKey && fromEmail) {
+      const emailText = [
+        'New PawfectlyDigital website contact form submission',
+        '',
+        `Name: ${submission.name}`,
+        `Business: ${submission.business}`,
+        `Email: ${submission.email}`,
+        `Service: ${submission.service}`,
+        `Other details: ${submission.other_issue || '—'}`,
+        '',
+        'Message:',
+        submission.message
+      ].join('\\n');
+
+      try {
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: ['pawfectlydigital@gmail.com'],
+            reply_to: submission.email,
+            subject: `New website enquiry — ${submission.business}`,
+            text: emailText
+          })
+        });
+
+        if (!emailResponse.ok) {
+          const details = await emailResponse.text();
+          console.error('Contact notification email failed:', emailResponse.status, details.slice(0, 1000));
+        }
+      } catch (emailError) {
+        console.error('Contact notification email request failed:', emailError);
+      }
+    } else {
+      console.warn('Contact notification email not sent: configure RESEND_API_KEY and RESEND_FROM_EMAIL in Vercel.');
+    }
+
+    // A notification email failure does not discard a contact that was already saved in Supabase.
     return json(res, 201, { ok: true });
   } catch (error) {
     console.error('Contact API request failed:', error);
