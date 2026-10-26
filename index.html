@@ -1237,17 +1237,51 @@
       if (!isOther) otherIssue.value = '';
     });
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!form.checkValidity()) {
         status.textContent = "Please fill in the required fields so we know where to send the treats.";
         form.reportValidity();
         return;
       }
-      status.textContent = "Thanks — message received! Demo form: connect this to your email or CRM before launch.";
-      form.reset();
-      otherField.hidden = true;
-      otherIssue.required = false;
+
+      const submitButton = form.querySelector('button[type="submit"]');
+      const originalButtonText = submitButton.textContent;
+      const formData = new FormData(form);
+      const payload = {
+        name: String(formData.get('name') || '').trim(),
+        business: String(formData.get('business') || '').trim(),
+        email: String(formData.get('email') || '').trim(),
+        service: String(formData.get('service') || '').trim(),
+        otherIssue: String(formData.get('otherIssue') || '').trim(),
+        message: String(formData.get('message') || '').trim()
+      };
+
+      submitButton.disabled = true;
+      status.textContent = "Sending your message securely…";
+
+      try {
+        const response = await fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Sorry, your message could not be sent. Please try again later.');
+        }
+
+        status.textContent = "Thanks — your message has been sent successfully. We’ll be in touch soon.";
+        form.reset();
+        otherField.hidden = true;
+        otherIssue.required = false;
+      } catch (error) {
+        status.textContent = error.message || 'Sorry, your message could not be sent. Please try again later.';
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = originalButtonText;
+      }
     });
   </script>
 </body>
